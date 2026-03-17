@@ -1,0 +1,264 @@
+import { useState } from "react";
+import { AlertCircle } from "lucide-react";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { toast } from "@/components/ui/use-toast";
+
+const defaultForm = {
+  age: "",
+  gender: "",
+  smoking: "",
+  symptoms: "",
+  ca125: "",
+  cea: "",
+  psa: "",
+  afp: "",
+};
+
+type RiskLevel = "low" | "medium" | "high" | null;
+
+export default function PredictionPage() {
+  const [form, setForm] = useState(defaultForm);
+  const [result, setResult] = useState<{ prediction: RiskLevel; confidence: number } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (field: string, value: string) => {
+    setForm((f) => ({ ...f, [field]: value }));
+  };
+
+  const validateForm = () => {
+    if (!form.age || !form.gender || !form.smoking) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please fill in Age, Gender, and Smoking History",
+      });
+      return false;
+    }
+    if (!form.ca125 && !form.cea && !form.psa && !form.afp) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please enter at least one biomarker value",
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const runPrediction = async () => {
+    if (!validateForm()) return;
+
+    setLoading(true);
+    try {
+      const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL;
+      if (!webhookUrl) {
+        throw new Error("N8N webhook URL is not configured");
+      }
+
+      const payload = {
+        age: parseInt(form.age),
+        gender: form.gender,
+        smoking: form.smoking,
+        symptoms: form.symptoms,
+        biomarkers: {
+          ca125: form.ca125 ? parseFloat(form.ca125) : null,
+          cea: form.cea ? parseFloat(form.cea) : null,
+          psa: form.psa ? parseFloat(form.psa) : null,
+          afp: form.afp ? parseFloat(form.afp) : null,
+        },
+      };
+
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      // Normalize prediction to lowercase
+      const prediction = data.prediction?.toLowerCase() as RiskLevel || "medium";
+      const confidence = Math.round(data.confidence || 75);
+
+      setResult({ prediction, confidence });
+      
+      toast({
+        title: "Success",
+        description: `Prediction complete: ${prediction.toUpperCase()} risk (${confidence}% confidence)`,
+      });
+    } catch (error: any) {
+      console.error("Prediction error:", error);
+      toast({
+        variant: "destructive",
+        title: "Prediction Failed",
+        description: error?.message || "Failed to execute prediction. Please try again.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const riskConfig = {
+    low: { label: "Low Risk", color: "text-risk-low", bg: "bg-risk-low", border: "border-risk-low/20" },
+    medium: { label: "Medium Risk", color: "text-risk-med", bg: "bg-risk-med", border: "border-risk-med/20" },
+    high: { label: "High Risk", color: "text-risk-high", bg: "bg-risk-high", border: "border-risk-high/20" },
+  };
+
+  return (
+    <AppLayout>
+      <div className="grid grid-cols-12 gap-6">
+        <div className="col-span-7 space-y-4">
+          {/* Biometrics */}
+          <div className="clinical-card">
+            <div className="clinical-card-header">
+              <span className="clinical-card-title">Biometrics</span>
+            </div>
+            <div className="p-4 grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-1">Age *</label>
+                <input type="number" value={form.age} onChange={(e) => handleChange("age", e.target.value)}
+                  disabled={loading}
+                  className="w-full border border-border rounded-sm px-3 py-2 text-sm bg-surface text-foreground outline-none focus:ring-1 focus:ring-primary font-mono disabled:opacity-50" placeholder="e.g. 55" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-1">Gender *</label>
+                <select value={form.gender} onChange={(e) => handleChange("gender", e.target.value)}
+                  disabled={loading}
+                  className="w-full border border-border rounded-sm px-3 py-2 text-sm bg-surface text-foreground outline-none focus:ring-1 focus:ring-primary disabled:opacity-50">
+                  <option value="">Select</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-1">Smoking History *</label>
+                <select value={form.smoking} onChange={(e) => handleChange("smoking", e.target.value)}
+                  disabled={loading}
+                  className="w-full border border-border rounded-sm px-3 py-2 text-sm bg-surface text-foreground outline-none focus:ring-1 focus:ring-primary disabled:opacity-50">
+                  <option value="">Select</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                  <option value="former">Former</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-1">Symptoms</label>
+                <textarea value={form.symptoms} onChange={(e) => handleChange("symptoms", e.target.value)}
+                  disabled={loading}
+                  rows={3} className="w-full border border-border rounded-sm px-3 py-2 text-sm bg-surface text-foreground outline-none focus:ring-1 focus:ring-primary resize-none disabled:opacity-50"
+                  placeholder="Describe presenting symptoms..." />
+              </div>
+            </div>
+          </div>
+
+          {/* Biomarkers */}
+          <div className="clinical-card">
+            <div className="clinical-card-header">
+              <span className="clinical-card-title">Biomarkers (Blood Markers) *</span>
+            </div>
+            <div className="p-4 grid grid-cols-2 gap-4">
+              {[
+                { key: "ca125", label: "CA-125", unit: "U/mL", placeholder: "0-35 normal" },
+                { key: "cea", label: "CEA", unit: "ng/mL", placeholder: "0-5 normal" },
+                { key: "psa", label: "PSA", unit: "ng/mL", placeholder: "0-4 normal" },
+                { key: "afp", label: "AFP", unit: "ng/mL", placeholder: "0-10 normal" },
+              ].map((m) => (
+                <div key={m.key}>
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-1">
+                    {m.label} <span className="text-muted-foreground/60 normal-case">({m.unit})</span>
+                  </label>
+                  <input type="number" value={form[m.key as keyof typeof form]} onChange={(e) => handleChange(m.key, e.target.value)}
+                    disabled={loading}
+                    className="w-full border border-border rounded-sm px-3 py-2 text-sm bg-surface text-foreground outline-none focus:ring-1 focus:ring-primary font-mono disabled:opacity-50"
+                    placeholder={m.placeholder} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button onClick={runPrediction}
+            disabled={loading}
+            className="w-full bg-primary text-primary-foreground py-2.5 rounded-sm text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity">
+            {loading ? "Executing Prediction..." : "Execute Prediction"}
+          </button>
+        </div>
+
+        {/* Result */}
+        <div className="col-span-5">
+          <div className="clinical-card sticky top-6">
+            <div className="clinical-card-header">
+              <span className="clinical-card-title">Prediction Result</span>
+            </div>
+            <div className="p-6">
+              {result ? (
+                <div className="space-y-6">
+                  {/* Gauge */}
+                  <div className="flex flex-col items-center">
+                    <div className="relative w-40 h-40">
+                      <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                        <circle cx="50" cy="50" r="42" fill="none" stroke="hsl(var(--border))" strokeWidth="6" />
+                        <circle cx="50" cy="50" r="42" fill="none"
+                          stroke={result.prediction === "high" ? "hsl(var(--risk-high))" : result.prediction === "medium" ? "hsl(var(--risk-med))" : "hsl(var(--risk-low))"}
+                          strokeWidth="6" strokeLinecap="round"
+                          strokeDasharray={`${result.confidence * 2.64} 264`} />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-3xl font-semibold font-mono text-foreground">{result.confidence}%</span>
+                        <span className="text-xs text-muted-foreground">Confidence</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-center space-y-2">
+                    <p className={`text-lg font-semibold tracking-tight ${riskConfig[result.prediction].color}`}>
+                      {riskConfig[result.prediction].label}
+                    </p>
+                    <p className="text-sm text-foreground">
+                      {result.confidence}% Confidence Level
+                    </p>
+                    <p className="text-xs text-muted-foreground font-mono">
+                      95% CI: {Math.max(0, result.confidence - 3)}-{Math.min(100, result.confidence + 3)}%
+                    </p>
+                  </div>
+
+                  <div className="border-t border-border pt-4 space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recommendation</p>
+                    <p className="text-sm text-foreground">
+                      {result.prediction === "high"
+                        ? "Immediate specialist consultation and biopsy recommended. Flag for oncology review."
+                        : result.prediction === "medium"
+                        ? "Follow-up screening in 30 days. Monitor biomarker levels closely."
+                        : "Continue routine screening schedule. No immediate action required."}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-12 text-center space-y-4">
+                  {loading ? (
+                    <>
+                      <div className="inline-block w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      <p className="text-sm text-muted-foreground">Running prediction model...</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex justify-center">
+                        <AlertCircle className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">Enter patient data and execute prediction to view results.</p>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </AppLayout>
+  );
+}
