@@ -12,11 +12,7 @@
       ]
     },
     "skipLibCheck": true,
-    "strictNullChecks": false,
-    "types": [
-      "node",
-      "vite/client"
-    ]
+    "strictNullChecks": false
   },
   "files": [],
   "references": [
