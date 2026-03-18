@@ -1,12 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath, URL } from "node:url";
-import { dirname } from "node:path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import type { ConfigEnv } from "vite";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig((config: ConfigEnv) => ({
   server: {
     host: "::",
     port: 8080,
@@ -16,7 +14,7 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     outDir: "dist",
-    sourcemap: mode === "development",
+    sourcemap: config.mode === "development",
   },
   plugins: [react()],
   resolve: {
