@@ -14,9 +14,9 @@ export default defineConfig((config: ConfigEnv) => ({
   },
 
   preview: {
-    host: true,
-    allowedHosts: ["med-clarity-lung-cancer-screening.onrender.com"],
-  },
+  host: true,
+  allowedHosts: [".onrender.com"],
+},
 
   build: {
     outDir: "dist",
