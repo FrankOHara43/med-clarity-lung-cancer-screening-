@@ -1,3 +1,4 @@
+import type React from "react";
 import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
 
