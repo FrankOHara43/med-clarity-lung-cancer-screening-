@@ -12,7 +12,10 @@
       ]
     },
     "skipLibCheck": true,
-    "strictNullChecks": false
+    "strictNullChecks": false,
+    "types": [
+      "vite/client"
+    ]
   },
   "files": [],
   "references": [
