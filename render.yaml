@@ -1,8 +1,6 @@
 services:
   - type: web
-    name: med-clarity-dash
+    name: med-clarity
     env: static
-    rootDir: .
-    plan: free
-    buildCommand: npm ci --include=dev && npm run build
+    buildCommand: npm install && npm run build
     staticPublishPath: dist
