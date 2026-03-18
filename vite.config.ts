@@ -12,11 +12,19 @@ export default defineConfig((config: ConfigEnv) => ({
       overlay: false,
     },
   },
+
+  preview: {
+    host: true,
+    allowedHosts: ["med-clarity-lung-cancer-screening.onrender.com"],
+  },
+
   build: {
     outDir: "dist",
     sourcemap: config.mode === "development",
   },
+
   plugins: [react()],
+
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
